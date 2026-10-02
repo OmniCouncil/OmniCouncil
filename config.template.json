@@ -1,0 +1,160 @@
+{
+  "workers": [
+    {
+      "name": "Claude",
+      "command": [
+        "claude",
+        "--strict-mcp-config",
+        "--tools",
+        "",
+        "-p",
+        "{prompt}"
+      ],
+      "timeout": 300,
+      "env_unset": [
+        "ANTHROPIC_API_KEY"
+      ],
+      "enabled": true,
+      "model_flag": "--model",
+      "available_models": [
+        "haiku",
+        "sonnet",
+        "opus"
+      ],
+      "selected_model": "",
+      "is_persistent": true
+    },
+    {
+      "name": "Gemini",
+      "command": [
+        "agy",
+        "--sandbox",
+        "-p",
+        "{prompt}"
+      ],
+      "timeout": 300,
+      "enabled": true,
+      "model_flag": "--model",
+      "available_models": [
+        "gemini-3.8-flash-low",
+        "gemini-3.8-flash-medium",
+        "gemini-3.1-pro-high"
+      ],
+      "selected_model": "",
+      "is_persistent": false
+    },
+    {
+      "name": "Codex",
+      "command": [
+        "codex",
+        "exec",
+        "--sandbox",
+        "read-only",
+        "--skip-git-repo-check",
+        "--ephemeral",
+        "--color",
+        "never",
+        "{prompt}"
+      ],
+      "timeout": 300,
+      "env_unset": [
+        "OPENAI_API_KEY"
+      ],
+      "enabled": true,
+      "model_flag": "-m",
+      "available_models": [
+        "gpt-5.6-luna",
+        "gpt-5.6-terra",
+        "gpt-5.6-sol",
+        "gpt-6-astra"
+      ],
+      "selected_model": "",
+      "is_persistent": false
+    }
+  ],
+  "leaders": [
+    {
+      "name": "Claude Opus",
+      "tier": "pro",
+      "command": [
+        "claude",
+        "--strict-mcp-config",
+        "--tools",
+        "",
+        "--model",
+        "opus",
+        "-p",
+        "{prompt}"
+      ],
+      "timeout": 600,
+      "env_unset": [
+        "ANTHROPIC_API_KEY"
+      ],
+      "is_persistent": true,
+      "file_flag": "--add-dir",
+      "file_arg": "dir",
+      "file_tools": "Read",
+      "file_types": [
+        "image",
+        "pdf",
+        "text"
+      ]
+    },
+    {
+      "name": "Gemini 3.1 Pro",
+      "tier": "pro",
+      "command": [
+        "agy",
+        "--sandbox",
+        "--model",
+        "gemini-3.1-pro-high",
+        "-p",
+        "{prompt}"
+      ],
+      "timeout": 600,
+      "file_flag": "--add-dir",
+      "file_arg": "dir",
+      "file_tools": "",
+      "file_types": [
+        "image",
+        "pdf",
+        "text",
+        "audio"
+      ],
+      "is_persistent": false
+    },
+    {
+      "name": "Codex",
+      "command": [
+        "codex",
+        "exec",
+        "--sandbox",
+        "read-only",
+        "--skip-git-repo-check",
+        "--ephemeral",
+        "--color",
+        "never",
+        "{prompt}"
+      ],
+      "timeout": 600,
+      "env_unset": [
+        "OPENAI_API_KEY"
+      ],
+      "file_flag": "--image=",
+      "file_arg": "file",
+      "file_tools": "",
+      "file_types": [
+        "image"
+      ],
+      "is_persistent": false
+    }
+  ],
+  "default_leader": "Claude Opus",
+  "review_on_low_confidence": true,
+  "hotkey": "cmd+shift+j",
+  "language": "en",
+  "mode": "judge",
+  "cowork_rounds": 3,
+  "cowork_max_rounds": 4,
+  "cowork_extend": true
+}

@@ -1,0 +1,23 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local data: chat history, attachments, recordings, quota cache, login scripts
+data/
+
+# Personal configuration (generated from config.template.json on first launch)
+config.json
+.config.json.tmp
+
+# Secrets
+.env
+.env.*
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

@@ -31,3 +31,25 @@ USER_PROMPTS_DIR = APP_HOME / "prompts"      # optional user overrides, same fil
 TEMPLATE_PATH = PACKAGE_DIR / "config.template.json"
 PROMPTS_DIR = PACKAGE_DIR / "prompts"
 ASSETS_DIR = PACKAGE_DIR / "assets"
+
+
+def ensure_login_path() -> bool:
+    """Apps launched from Finder get a minimal PATH (/usr/bin:/bin:…), so CLIs installed in ~/.local/bin,
+    Homebrew or nvm wouldn't be found. If PATH looks minimal, adopt the PATH of the user's login shell.
+    Returns True if PATH was changed."""
+    import subprocess
+
+    current = os.environ.get("PATH", "")
+    if any(d in current for d in ("/opt/homebrew/bin", "/usr/local/bin", "/.local/bin")):
+        return False
+    shell = os.environ.get("SHELL") or "/bin/zsh"
+    try:
+        out = subprocess.run([shell, "-lic", "printf %s \"$PATH\""], capture_output=True, text=True, timeout=10,
+                             stdin=subprocess.DEVNULL).stdout.strip().splitlines()
+    except (OSError, subprocess.SubprocessError):
+        return False
+    login_path = out[-1] if out else ""
+    if not login_path or login_path == current:
+        return False
+    os.environ["PATH"] = login_path + (os.pathsep + current if current else "")
+    return True

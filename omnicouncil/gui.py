@@ -91,12 +91,12 @@ from .orchestrate import (
     orchestrate,
     select_reviewer,
 )
-from .paths import ASSETS_DIR, DATA_DIR
+from .paths import ASSETS_DIR, DATA_DIR, ensure_login_path
 from .pool import POOL
 from .runner import kill_running_processes
 from .storage import DEFAULT_DB_PATH, HistoryStore, outcome_to_record, record_to_outcome
 
-log = logging.getLogger("agentmanager")
+log = logging.getLogger("omnicouncil")
 
 # ---------------------------------------------------------------------------
 # 视觉：macOS 暗色风格
@@ -2245,6 +2245,8 @@ def main() -> None:
     parser.add_argument("--db", type=Path, default=DEFAULT_DB_PATH, help="history database path")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
+    if ensure_login_path():  # launched from Finder / the app bundle: find the CLIs like a terminal would
+        log.info("PATH taken from the login shell")
 
     app = QApplication(sys.argv)
     app.setApplicationName("OmniCouncil")

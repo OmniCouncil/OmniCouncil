@@ -19,7 +19,7 @@ from typing import Callable, Optional
 
 from .i18n import t
 
-log = logging.getLogger("agentmanager.hotkey")
+log = logging.getLogger("omnicouncil.hotkey")
 
 # Carbon 修饰键位（Events.h）
 MODIFIERS = {

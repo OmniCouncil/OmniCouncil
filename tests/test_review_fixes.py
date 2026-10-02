@@ -170,3 +170,10 @@ def test_error_summary_prefers_error_lines_then_first_line():
     noisy = "Reading input...\nCodex v1\nERROR: You've hit your usage limit."
     assert AgentResult("a", False, error=noisy).error_summary == "ERROR: You've hit your usage limit."
     assert AgentResult("a", False, error="").error_summary == "Failed"
+
+
+def test_agy_denied_action_with_empty_answer_is_a_failure(agent):
+    body = ('import json; print(json.dumps({"status": "SUCCESS", "response": "", '
+            '"denied_actions": [{"action": "read_url", "display_name": "ReadUrlContent"}]}))')
+    r = asyncio.run(run_agent(agent("Gemini", body, exe="agy"), "q"))
+    assert not r.ok and "ReadUrlContent" in r.error

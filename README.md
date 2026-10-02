@@ -244,6 +244,7 @@ omnicouncil config --show                                      # agents, models,
 | `workers[].command` | The CLI argument list; `{prompt}` marks where the prompt goes |
 | `workers[].available_models` / `selected_model` / `model_flag` | Model dropdown options; the flag is inserted right before the prompt |
 | `workers[].env_unset` | Environment variables removed for this CLI only (e.g. `ANTHROPIC_API_KEY`, so Claude uses your subscription) |
+| `*.web_search` | Let the agent search the web (default on). Claude gets only the read-only `WebSearch`/`WebFetch` tools, pre-approved; Codex gets `--search`. `agy` has no safe switch (opening pages needs a permission that non-interactive runs deny) |
 | `*.is_persistent` | Run the agent in the warm pool (supported: `claude`; `agy` optional) |
 | `leaders[].file_flag` / `file_types` | How the Leader receives attachments and which kinds it can read |
 | `mode` | `judge` or `cowork` |
@@ -259,7 +260,8 @@ omnicouncil config --show                                      # agents, models,
 - **OmniCouncil has no backend and stores its own data locally** — history, attachments, recordings and the usage cache live in `data/` (or `~/Library/Application Support/OmniCouncil/data`).
 - **Your prompts, conversation context and attachment contents are still sent to the model providers you select**, through their CLIs, under those providers' privacy terms. Local storage does not mean the data never leaves your machine.
 - No credential files are read: account status comes from each CLI's own status command.
-- Claude-based workers and Leaders run with `--tools ""` (no file or memory writes). Only attachment pre-processing enables the `Read` tool, limited to the attachment folder.
+- Claude-based workers and Leaders get no file or memory tools — only the read-only web tools when web search is on. Only attachment pre-processing enables the `Read` tool, limited to the attachment folder.
+- With web search on, search queries are sent to the provider's search service as well.
 
 See [SECURITY.md](SECURITY.md) for the threat model and how to report a vulnerability.
 

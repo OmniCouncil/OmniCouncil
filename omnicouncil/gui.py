@@ -74,6 +74,7 @@ from .config import (
     load_config,
     save_language,
     save_selection,
+    save_agent_field,
     save_worker_model,
 )
 from .agent import AgentResult
@@ -1432,6 +1433,9 @@ class ConfigPanel(QFrame):
         self.leader_combo = QComboBox()
         self.leader_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         lay.addWidget(self.leader_combo)
+        self.leader_web = QCheckBox(t("panel.web"))
+        self.leader_web.toggled.connect(self._on_leader_web_toggled)
+        lay.addWidget(self.leader_web)
         self.leader_cmd = label("", "Faint", wrap=True)
         lay.addWidget(self.leader_cmd)
         self.leader_combo.currentIndexChanged.connect(self._update_hints)
@@ -1545,6 +1549,16 @@ class ConfigPanel(QFrame):
                 holder = QWidget()
                 holder.setLayout(row)
                 self.workers_box.addWidget(holder)
+            if spec.supports_web_search:
+                web = self._web_checkbox("workers", spec)
+                cb.toggled.connect(web.setEnabled)
+                web.setEnabled(cb.isChecked())
+                row = QHBoxLayout()
+                row.setContentsMargins(26, 0, 0, 4)
+                row.addWidget(web)
+                holder = QWidget()
+                holder.setLayout(row)
+                self.workers_box.addWidget(holder)
 
         self.leader_combo.blockSignals(True)
         self.leader_combo.clear()
@@ -1578,6 +1592,41 @@ class ConfigPanel(QFrame):
         combo.currentIndexChanged.connect(lambda _i, n=spec.name, c=combo: self._on_model_changed(n, c.currentData()))
         self.model_combos[spec.name] = combo
         return combo
+
+    def _web_checkbox(self, section: str, spec: AgentSpec) -> QCheckBox:
+        box = QCheckBox(t("panel.web"))
+        box.setChecked(spec.web_search)
+        box.setToolTip(t("panel.web_tip", name=spec.name))
+        box.toggled.connect(lambda on, n=spec.name: self._set_web_search(section, n, on))
+        return box
+
+    def _set_web_search(self, section: str, name: str, on: bool) -> None:
+        """切换联网搜索：立即更新内存中的配置，后台写入 config.json，并同步常驻进程（命令已变化）。"""
+        if not self.cfg:
+            return
+        specs = self.cfg.workers if section == "workers" else self.cfg.leaders
+        spec = next(s for s in specs if s.name == name)
+        if spec.web_search == on:
+            return
+        spec.web_search = on
+        if section == "workers" and name in self.checks:
+            self.checks[name].setToolTip(shlex.join(spec.argv_template()))
+        self._update_hints()
+        asyncio.ensure_future(self._persist_field(section, name, "web_search", on,
+                                                  t("panel.web_saved", name=name, state=t("panel.on") if on else t("panel.off"))))
+        self.request_pool_sync()
+
+    def _on_leader_web_toggled(self, on: bool) -> None:
+        if self.cfg and self.leader_combo.currentData():
+            self._set_web_search("leaders", self.leader_combo.currentData(), on)
+
+    async def _persist_field(self, section: str, name: str, key: str, value, note: str) -> None:
+        try:
+            await asyncio.get_running_loop().run_in_executor(None, save_agent_field, self.cfg.path, section, name, key, value)
+        except (OSError, ConfigError) as e:
+            self.saved.setText(t("panel.save_failed", e=e))
+            return
+        self.saved.setText(note)
 
     def _on_model_changed(self, worker: str, model: str) -> None:
         """切换模型：立即更新内存中的配置，并在后台线程写入 config.json。"""
@@ -1647,6 +1696,11 @@ class ConfigPanel(QFrame):
                                  if self.extend.isChecked() and self.extend.isEnabled()
                                  else t("panel.extend_off", rounds=self.cfg.cowork_rounds))
         leader = self.cfg.get_leader(self.leader_combo.currentData())
+        self.leader_web.blockSignals(True)
+        self.leader_web.setVisible(leader.supports_web_search)
+        self.leader_web.setChecked(leader.web_search)
+        self.leader_web.setToolTip(t("panel.web_tip", name=leader.name))
+        self.leader_web.blockSignals(False)
         self.leader_cmd.setText(shlex.join(leader.argv_template()))
         if not self.review.isChecked():
             self.review_hint.setText(t("panel.review_off"))

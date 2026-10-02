@@ -187,6 +187,14 @@ STRINGS: dict[str, tuple[str, str]] = {
     "panel.model_default": ("CLI default", "CLI 默认"),
     "panel.model_tip": ("Model for {name} (passed to the CLI as {flag} <model>)", "{name} 使用的模型（以 {flag} <模型> 传给 CLI）"),
     "panel.model_saved": ("✓ {name} → {model}", "✓ {name} → {model}"),
+    "panel.web": ("🌐 Web search", "🌐 联网搜索"),
+    "panel.web_tip": ("Let {name} search the web (Claude: read-only WebSearch/WebFetch tools; Codex: --search). "
+                      "Slower and uses more quota; search queries go to the provider's search service.",
+                      "允许 {name} 联网搜索（Claude：只读的 WebSearch / WebFetch 工具；Codex：--search）。"
+                      "会更慢、消耗更多额度；搜索内容会发送到该厂商的搜索服务。"),
+    "panel.web_saved": ("✓ {name}: web search {state}", "✓ {name}：联网搜索{state}"),
+    "panel.on": ("on", "已开启"),
+    "panel.off": ("off", "已关闭"),
     # —— 常驻进程池 ——
     "pool.status": ("⚡ Warm pool: {items}", "⚡ 常驻进程：{items}"),
     "pool.none": ("⚡ Warm pool: none (all agents run one-shot)", "⚡ 常驻进程：无（全部按单次调用运行）"),

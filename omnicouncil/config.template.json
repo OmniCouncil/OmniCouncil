@@ -22,7 +22,8 @@
         "opus"
       ],
       "selected_model": "",
-      "is_persistent": true
+      "is_persistent": true,
+      "web_search": true
     },
     {
       "name": "Gemini",
@@ -41,7 +42,8 @@
         "gemini-3.1-pro-high"
       ],
       "selected_model": "",
-      "is_persistent": false
+      "is_persistent": false,
+      "web_search": false
     },
     {
       "name": "Codex",
@@ -69,7 +71,8 @@
         "gpt-6-astra"
       ],
       "selected_model": "",
-      "is_persistent": false
+      "is_persistent": false,
+      "web_search": true
     }
   ],
   "leaders": [
@@ -91,6 +94,7 @@
         "ANTHROPIC_API_KEY"
       ],
       "is_persistent": true,
+      "web_search": true,
       "file_flag": "--add-dir",
       "file_arg": "dir",
       "file_tools": "Read",
@@ -112,6 +116,7 @@
         "{prompt}"
       ],
       "timeout": 600,
+      "web_search": false,
       "file_flag": "--add-dir",
       "file_arg": "dir",
       "file_tools": "",
@@ -140,6 +145,7 @@
       "env_unset": [
         "OPENAI_API_KEY"
       ],
+      "web_search": true,
       "file_flag": "--image=",
       "file_arg": "file",
       "file_tools": "",

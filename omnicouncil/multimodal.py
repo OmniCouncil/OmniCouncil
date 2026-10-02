@@ -41,7 +41,7 @@ def file_kind(path: str) -> Optional[str]:
 def build_file_spec(leader: AgentSpec, files: list[str]) -> AgentSpec:
     """在 Leader 的命令中加入附件授权：目录 / 文件参数插在 prompt 之前；必要时临时启用读取工具。"""
     from dataclasses import replace as _replace
-    cmd = leader.argv_template()
+    cmd = _replace(leader, web_search=False).argv_template()  # 解析附件只需要读取工具
     if leader.file_tools and "--tools" in cmd:
         i = cmd.index("--tools")
         cmd[i + 1] = leader.file_tools
@@ -54,7 +54,7 @@ def build_file_spec(leader: AgentSpec, files: list[str]) -> AgentSpec:
     if idx > 1 and cmd[idx - 1] in PROMPT_FLAGS:
         idx -= 1
     cmd = cmd[:idx] + file_args + cmd[idx:]
-    return _replace(leader, command=cmd, selected_model="", is_persistent=False,
+    return _replace(leader, command=cmd, selected_model="", is_persistent=False, web_search=False,
                     timeout=max(leader.timeout, 300))
 
 

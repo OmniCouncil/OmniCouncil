@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AgentManager 桌面端（PySide6 + qasync）。
+"""OmniCouncil 桌面端（PySide6 + qasync）。
 
 布局：
     左侧   会话列表（持久化到 data/history.sqlite，启动时自动加载，右键可删除）
@@ -1707,7 +1707,7 @@ class MainWindow(QMainWindow):
         self.config_path = config_path
         self.store = HistoryStore(db_path)
         self.sessions: list[Session] = []
-        self.setWindowTitle("AgentManager")
+        self.setWindowTitle("OmniCouncil")
         self.resize(1240, 820)
         self.setMinimumSize(860, 540)
 
@@ -1746,7 +1746,7 @@ class MainWindow(QMainWindow):
         v = QVBoxLayout(side)
         v.setContentsMargins(12, 16, 12, 12)
         v.setSpacing(10)
-        v.addWidget(label("  AgentManager", "AppTitle"))
+        v.addWidget(label("  OmniCouncil", "AppTitle"))
         new_btn = QPushButton(t("sidebar.new"))
         new_btn.clicked.connect(self.new_session)
         v.addWidget(new_btn)
@@ -2230,14 +2230,14 @@ class AppController:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="AgentManager desktop app")
+    parser = argparse.ArgumentParser(description="OmniCouncil desktop app")
     parser.add_argument("--config", "-c", type=Path, default=DEFAULT_CONFIG_PATH, help="config file path")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB_PATH, help="history database path")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
 
     app = QApplication(sys.argv)
-    app.setApplicationName("AgentManager")
+    app.setApplicationName("OmniCouncil")
     try:
         app.styleHints().setColorScheme(Qt.ColorScheme.Dark)  # 让原生标题栏也使用暗色
     except AttributeError:

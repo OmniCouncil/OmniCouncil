@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AgentManager CLI 入口。
+"""OmniCouncil CLI 入口。
 
     python main.py ask "你的问题"
     python main.py config            # 用编辑器打开 config.json
@@ -31,7 +31,7 @@ from engine import POOL, console, main_flow, preprocess_multimodal
 i18n.set_language("zh")  # 终端 CLI 固定使用中文
 
 app = typer.Typer(
-    help="AgentManager —— 多智能体协作与仲裁（Mixture of Agents），基于本地 AI CLI。",
+    help="OmniCouncil —— 多智能体协作与仲裁（Mixture of Agents），基于本地 AI CLI。",
     add_completion=False,
     no_args_is_help=True,
 )

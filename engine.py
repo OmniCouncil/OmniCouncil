@@ -1,4 +1,4 @@
-"""AgentManager 核心引擎 —— 基于本地 AI CLI 的多智能体协作与仲裁 (MoA)。
+"""OmniCouncil 核心引擎 —— 基于本地 AI CLI 的多智能体协作与仲裁 (MoA)。
 
 流程：
     1. Workers 并发：把同一个问题同时发给多个本地 CLI（见 config.json）。

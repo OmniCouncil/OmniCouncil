@@ -63,14 +63,22 @@ def _json_candidates(text: str) -> list[str]:
 _SECTION_FINAL = re.compile(r"^#{1,4}\s*(?:最终定论|最终答案|Final verdict|Final answer)\b.*$", re.IGNORECASE | re.MULTILINE)
 
 
+def _section_body(text: str, m: re.Match) -> str:
+    """Body of the Markdown section whose heading was matched by `m`.
+
+    The section ends at the next heading of the same or a higher level (e.g. `###` ends at `#`–`###`), so
+    sub-headings inside it (`####` tables, lists …) stay part of the section."""
+    level = len(m.group(0)) - len(m.group(0).lstrip("#"))
+    rest = text[m.end():]
+    nxt = re.search(rf"^#{{1,{level}}}\s", rest, re.MULTILINE)
+    return (rest[:nxt.start()] if nxt else rest).strip()
+
+
 def _markdown_section(text: str, heading: re.Pattern) -> Optional[str]:
     m = heading.search(text)
     if not m:
         return None
-    rest = text[m.end():]
-    nxt = re.search(r"^#{1,4}\s", rest, re.MULTILINE)
-    section = (rest[:nxt.start()] if nxt else rest).strip()
-    return section or None
+    return _section_body(text, m) or None
 
 
 def parse_judge_output(text: str) -> dict:
@@ -135,9 +143,7 @@ def extract_guidance(verdict_text: str, limit: int = 3000) -> str:
     """取出 Leader 裁决中的「争议指导意见」一节；没有该节时退回整段裁决（截断）。"""
     m = _GUIDANCE_HEADING.search(verdict_text)
     if m:
-        rest = verdict_text[m.end():]
-        nxt = re.search(r"^#{1,4}\s", rest, re.MULTILINE)
-        section = (rest[:nxt.start()] if nxt else rest).strip()
+        section = _section_body(verdict_text, m)
         if section:
             return section[:limit]
     return verdict_text.strip()[:limit]

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      # The engine modules under test don't import Qt, so skip the large PySide6 download here.
+      - name: Install test dependencies
+        run: pip install rich typer qasync pytest pyflakes
+      - name: Lint
+        run: python -m pyflakes omnicouncil tests evals
+      - name: Test
+        run: python -m pytest -q
+
+  package:
+    name: package install (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install the package
+        run: pip install .
+      - name: Check entry points and bundled files
+        env:
+          OMNICOUNCIL_HOME: ${{ runner.temp }}/omnicouncil-home
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          omnicouncil --help
+          omnicouncil config --show
+          python -c "import omnicouncil.gui, omnicouncil.prompts as p; print(len(list(p.PROMPTS_DIR.glob('*.md'))), 'prompts bundled')"

@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omnicouncil"
+dynamic = ["version"]
+description = "Local-first Mixture-of-Agents desktop app for macOS that drives the official AI CLIs (Claude Code, Codex, Antigravity)."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "OmniCouncil contributors" }]
+keywords = ["llm", "mixture-of-agents", "claude", "codex", "gemini", "pyside6", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: MacOS X",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "PySide6>=6.6",
+    "qasync>=0.27",
+    "rich>=13",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pyflakes>=3"]
+
+[project.scripts]
+omnicouncil = "omnicouncil.cli:app"
+
+[project.gui-scripts]
+omnicouncil-gui = "omnicouncil.gui:main"
+
+[project.urls]
+Homepage = "https://github.com/OmniCouncil/OmniCouncil"
+Issues = "https://github.com/OmniCouncil/OmniCouncil/issues"
+
+[tool.setuptools]
+packages = ["omnicouncil"]
+
+[tool.setuptools.dynamic]
+version = { attr = "omnicouncil.__version__" }
+
+[tool.setuptools.package-data]
+omnicouncil = ["prompts/*.md", "assets/*", "config.template.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# ---------------------------------------------------------------------------
+# macOS app bundle (BeeWare Briefcase): `briefcase build macOS && briefcase package macOS --adhoc-sign`
+# ---------------------------------------------------------------------------
+[tool.briefcase]
+project_name = "OmniCouncil"
+bundle = "io.github.omnicouncil"
+version = "1.1.0"
+url = "https://github.com/OmniCouncil/OmniCouncil"
+license.file = "LICENSE"
+author = "OmniCouncil contributors"
+author_email = "omnicouncil@users.noreply.github.com"
+
+[tool.briefcase.app.omnicouncil]
+formal_name = "OmniCouncil"
+description = "Local-first Mixture-of-Agents desktop app driving the official AI CLIs."
+long_description = "Ask Claude, Gemini and Codex at once through their official CLIs; a Judge model returns one verdict with a consensus score."
+sources = ["omnicouncil"]
+requires = ["PySide6>=6.6", "qasync>=0.27", "rich>=13", "typer>=0.12"]
+permission.microphone = "OmniCouncil records voice notes that you attach to a question."
+# OmniCouncil only uses QtCore, QtGui, QtWidgets and QtMultimedia; drop heavy unused Qt modules (WebEngine alone is ~480 MB).
+cleanup_paths = [
+    "**/PySide6/Qt/lib/QtWebEngine*",
+    "**/PySide6/Qt/lib/Qt3D*",
+    "**/PySide6/Qt/lib/QtQuick3D*",
+    "**/PySide6/Qt/lib/QtDesigner*",
+    "**/PySide6/Qt/lib/QtPdf*",
+    "**/PySide6/Qt/lib/QtCharts*",
+    "**/PySide6/Qt/lib/QtDataVisualization*",
+    "**/PySide6/Qt/lib/QtGraphs*",
+    "**/PySide6/Qt/lib/QtLocation*",
+    "**/PySide6/Qt/lib/QtShaderTools*",
+    "**/PySide6/Qt/qml",
+    "**/PySide6/Qt/translations",
+    "**/PySide6/Qt/libexec/QtWebEngineProcess*",
+    "**/PySide6/QtWebEngine*",
+    "**/PySide6/Qt3D*",
+    "**/PySide6/QtQuick3D*",
+    "**/PySide6/QtDesigner*",
+    "**/PySide6/QtPdf*",
+    "**/PySide6/QtCharts*",
+    "**/PySide6/QtDataVisualization*",
+    "**/PySide6/QtGraphs*",
+    "**/PySide6/QtLocation*",
+    "**/PySide6/designer*",
+    "**/PySide6/lupdate*",
+    "**/PySide6/linguist*",
+    "**/PySide6/assistant*",
+]
+
+[tool.briefcase.app.omnicouncil.macOS]
+universal_build = false

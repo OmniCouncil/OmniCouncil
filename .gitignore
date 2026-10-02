@@ -21,3 +21,11 @@ config.json
 .DS_Store
 .idea/
 .vscode/
+
+# Packaging
+build/
+dist/
+
+# Evaluation caches and raw results (published summaries go in evals/*.md)
+evals/.cache/
+evals/results/

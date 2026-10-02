@@ -25,10 +25,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from config import PROJECT_ROOT
-from i18n import t
+from .i18n import t
+from .paths import DATA_DIR
 
-CACHE_PATH = PROJECT_ROOT / "data" / "quota_cache.json"
+CACHE_PATH = DATA_DIR / "quota_cache.json"
 CODEX_SESSIONS = Path.home() / ".codex" / "sessions"
 
 CODEX_WINDOW_KEYS = {300: "five_hour", 10080: "seven_day"}  # window_minutes → 统一的窗口 key
@@ -385,7 +385,7 @@ async def fetch(provider: str, **kwargs) -> ProviderStatus:
 # ---------------------------------------------------------------------------
 
 
-def write_login_script(provider: str, directory: Path = PROJECT_ROOT / "data" / "login") -> Path:
+def write_login_script(provider: str, directory: Path = DATA_DIR / "login") -> Path:
     """生成 .command 脚本。用 `open -a Terminal x.command` 打开，无需 AppleScript 自动化权限。"""
     title, _ = PROVIDERS[provider]
     directory.mkdir(parents=True, exist_ok=True)

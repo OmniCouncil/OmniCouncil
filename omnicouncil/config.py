@@ -49,9 +49,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.json"
-TEMPLATE_PATH = PROJECT_ROOT / "config.template.json"  # 随仓库发布的默认配置；首次启动时复制为 config.json
+from .paths import CONFIG_PATH as DEFAULT_CONFIG_PATH, TEMPLATE_PATH  # noqa: E402  首次启动时把模板复制为 config.json
 PROMPT_PLACEHOLDER = "{prompt}"
 
 DEFAULT_CONFIG: dict = {
@@ -255,6 +253,7 @@ _write_lock = threading.Lock()  # 序列化「读 → 改 → 写」，避免并
 
 def write_raw_config(data: dict, path: Path = DEFAULT_CONFIG_PATH) -> None:
     """原子写入：先写同目录临时文件，再 os.replace，避免写到一半被读到或损坏。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, path)

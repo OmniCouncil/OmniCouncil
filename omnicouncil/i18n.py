@@ -1,6 +1,6 @@
 """界面文案（English / 中文）。
 
-    from i18n import t
+    from omnicouncil.i18n import t
     t("card.judging", n=3)      # → "Judging 3 answers..." / "正在仲裁 3 份回答..."
 
 GUI 默认英文，可在界面右上角切换，选择保存在 config.json 的 "language"。
@@ -176,6 +176,11 @@ STRINGS: dict[str, tuple[str, str]] = {
     "card.cowork_by": ("⚖  {name} · Co-work · {r} rounds", "⚖  {name} · Co-work · {r} 轮"),
     "card.context": (" · {n} previous turn(s) as context", " · 带入 {n} 轮上下文"),
     "card.analysis": ("Analysis", "评审分析"),
+    "card.no_quorum": ("Insufficient quorum · not cross-validated", "样本不足 · 未经交叉验证"),
+    "card.no_quorum_tip": ("Only one agent answered, so there was nothing to compare against.",
+                           "只有一个 Agent 作答，没有可比较的其他回答。"),
+    "card.labels": ("Answers were shown to the Judge anonymized and shuffled: {pairs}",
+                    "回答以匿名、打乱顺序的方式提交给评审：{pairs}"),
     "card.first_answer": ("First-round answer (replaced)", "首轮答案（已被替换）"),
     "card.raw_output": ("Raw output (not valid JSON — parsed with fallback)", "原始输出（非合法 JSON，已回退解析）"),
     # —— 模型选择 ——

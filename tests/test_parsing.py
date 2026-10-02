@@ -2,9 +2,11 @@
 
 import pytest
 
-from conftest import engine, i18n
+from conftest import i18n
+from omnicouncil.orchestrate import CONTEXT_TURNS, build_context_prompt
+from omnicouncil.parsing import extract_guidance, normalize_score, parse_confidence, parse_judge_output
 
-P = engine.parse_judge_output
+P = parse_judge_output
 
 
 @pytest.mark.parametrize("text,expected", [
@@ -16,7 +18,7 @@ P = engine.parse_judge_output
     ("no confidence here", None),
 ])
 def test_parse_confidence(text, expected):
-    assert engine.parse_confidence(text) == expected
+    assert parse_confidence(text) == expected
 
 
 @pytest.mark.parametrize("value,expected", [
@@ -25,7 +27,7 @@ def test_parse_confidence(text, expected):
     ("2.5", None), ("abc", None), (None, None), (-1, None),
 ])
 def test_normalize_score(value, expected):
-    assert engine.normalize_score(value) == expected
+    assert normalize_score(value) == expected
 
 
 def test_clean_json():
@@ -78,24 +80,24 @@ def test_confidence_falls_back_to_score():
 
 def test_extract_guidance_section():
     text = "### Confidence: Low\n### Final verdict\nnone\n### Dispute guidance\n- check units\n- cite source"
-    assert engine.extract_guidance(text) == "- check units\n- cite source"
+    assert extract_guidance(text) == "- check units\n- cite source"
 
 
 def test_extract_guidance_without_section_returns_whole_text():
-    assert engine.extract_guidance("### 确信度：低\n只有这些") == "### 确信度：低\n只有这些"
+    assert extract_guidance("### 确信度：低\n只有这些") == "### 确信度：低\n只有这些"
 
 
 def test_build_context_prompt_formats_and_limits():
-    assert engine.build_context_prompt([], "q") == "q"
-    out = engine.build_context_prompt([("2+2?", "4."), ("times 3?", "12.")], "minus 5?")
+    assert build_context_prompt([], "q") == "q"
+    out = build_context_prompt([("2+2?", "4."), ("times 3?", "12.")], "minus 5?")
     assert out == ("Previous conversation:\nUser: 2+2?\nAI: 4.\n\nUser: times 3?\nAI: 12.\n\n"
                    "Current question: minus 5?")
     many = [(f"q{i}", "a" * 5000) for i in range(10)]
-    out = engine.build_context_prompt(many, "now")
-    assert out.count("User:") <= engine.CONTEXT_TURNS
+    out = build_context_prompt(many, "now")
+    assert out.count("User:") <= CONTEXT_TURNS
     assert "q9" in out and "q0" not in out
 
 
 def test_build_context_prompt_chinese():
     i18n.set_language("zh")
-    assert engine.build_context_prompt([("问", "答")], "再问").startswith("此前的对话：\n用户: 问")
+    assert build_context_prompt([("问", "答")], "再问").startswith("此前的对话：\n用户: 问")

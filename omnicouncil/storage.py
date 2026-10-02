@@ -15,10 +15,12 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from config import PROJECT_ROOT, AgentSpec
-from engine import AgentResult, RunOutcome
+from .agent import AgentResult
+from .config import AgentSpec
+from .orchestrate import RunOutcome
+from .paths import DATA_DIR
 
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "history.sqlite"
+DEFAULT_DB_PATH = DATA_DIR / "history.sqlite"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (

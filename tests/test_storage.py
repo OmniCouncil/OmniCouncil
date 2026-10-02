@@ -3,17 +3,20 @@
 import json
 import sqlite3
 
-from conftest import engine, storage
+from conftest import storage
+from omnicouncil.agent import AgentResult
+from omnicouncil.config import AgentSpec
+from omnicouncil.orchestrate import RunOutcome
 
 
 def make_outcome(mode="judge"):
-    r = lambda name, out, **kw: engine.AgentResult(name, ok=True, output=out, elapsed=1.0, **kw)  # noqa: E731
+    r = lambda name, out, **kw: AgentResult(name, ok=True, output=out, elapsed=1.0, **kw)  # noqa: E731
     if mode == "judge":
         v = r("Judge", "{}", extra={"confidence": "高", "consensus_score": 1.0, "final_answer": "A"})
-        return engine.RunOutcome([r("W1", "a"), r("W2", "b")], v, 0, first_verdict=v)
+        return RunOutcome([r("W1", "a"), r("W2", "b")], v, 0, first_verdict=v)
     rounds = [[r("W1", "r1a"), r("W2", "r1b")], [r("W1", "r2a"), r("W2", "r2b")]]
     v = r("Judge", "x", extra={"confidence": "高", "round": 2, "mode": "cowork", "final_answer": "B"})
-    return engine.RunOutcome(rounds[-1], v, 0, first_verdict=v, mode="cowork", rounds=rounds,
+    return RunOutcome(rounds[-1], v, 0, first_verdict=v, mode="cowork", rounds=rounds,
                              leader_rounds=[v], guidance=[])
 
 
@@ -35,7 +38,7 @@ def test_v1_database_is_migrated(tmp_path):
 def test_round_trip_judge_and_cowork(tmp_path):
     st = storage.HistoryStore(tmp_path / "h.sqlite")
     sid = st.create_session("t")
-    spec = lambda n: engine.AgentSpec(n, ["x", "{prompt}"])  # noqa: E731
+    spec = lambda n: AgentSpec(n, ["x", "{prompt}"])  # noqa: E731
     for mode in ("judge", "cowork"):
         st.add_run(sid, storage.outcome_to_record("q", [spec("W1"), spec("W2")], spec("Judge"), make_outcome(mode), 3.0))
     judge, cowork = (storage.record_to_outcome(r) for r in st.get_runs(sid))
@@ -47,7 +50,7 @@ def test_round_trip_judge_and_cowork(tmp_path):
 def test_delete_cascades_to_rounds(tmp_path):
     st = storage.HistoryStore(tmp_path / "h.sqlite")
     sid = st.create_session("t")
-    spec = engine.AgentSpec("W", ["x", "{prompt}"])
+    spec = AgentSpec("W", ["x", "{prompt}"])
     st.add_run(sid, storage.outcome_to_record("q", [spec], spec, make_outcome("cowork"), 1.0))
     st.delete_session(sid)
     assert st._db.execute("SELECT COUNT(*) FROM round_outputs").fetchone()[0] == 0

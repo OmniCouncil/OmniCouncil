@@ -17,7 +17,7 @@ import logging
 import sys
 from typing import Callable, Optional
 
-from i18n import t
+from .i18n import t
 
 log = logging.getLogger("agentmanager.hotkey")
 

@@ -1,6 +1,6 @@
 """界面文案（English / 中文）。
 
-    from i18n import t
+    from omnicouncil.i18n import t
     t("card.judging", n=3)      # → "Judging 3 answers..." / "正在仲裁 3 份回答..."
 
 GUI 默认英文，可在界面右上角切换，选择保存在 config.json 的 "language"。

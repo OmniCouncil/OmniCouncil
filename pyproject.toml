@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omnicouncil"
+dynamic = ["version"]
+description = "Local-first Mixture-of-Agents desktop app for macOS that drives the official AI CLIs (Claude Code, Codex, Antigravity)."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "OmniCouncil contributors" }]
+keywords = ["llm", "mixture-of-agents", "claude", "codex", "gemini", "pyside6", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: MacOS X",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "PySide6>=6.6",
+    "qasync>=0.27",
+    "rich>=13",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pyflakes>=3"]
+
+[project.scripts]
+omnicouncil = "omnicouncil.cli:app"
+
+[project.gui-scripts]
+omnicouncil-gui = "omnicouncil.gui:main"
+
+[project.urls]
+Homepage = "https://github.com/OmniCouncil/OmniCouncil"
+Issues = "https://github.com/OmniCouncil/OmniCouncil/issues"
+
+[tool.setuptools]
+packages = ["omnicouncil"]
+
+[tool.setuptools.dynamic]
+version = { attr = "omnicouncil.__version__" }
+
+[tool.setuptools.package-data]
+omnicouncil = ["prompts/*.md", "assets/*", "config.template.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

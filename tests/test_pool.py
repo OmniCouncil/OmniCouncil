@@ -4,26 +4,28 @@ import asyncio
 
 import pytest
 
-from conftest import FAKE_CLAUDE_STREAM, engine, write_script
+from conftest import FAKE_CLAUDE_STREAM, write_script
+from omnicouncil.config import AgentSpec
+from omnicouncil.pool import AgentPool
 
 
 @pytest.fixture
 def claude_spec(fakebin):
     # The pool picks the protocol by executable name, so the fake must be called "claude".
     script = write_script(fakebin / "claude", FAKE_CLAUDE_STREAM)
-    return engine.AgentSpec("Claude", [str(script), "-p", "{prompt}"], is_persistent=True, timeout=10)
+    return AgentSpec("Claude", [str(script), "-p", "{prompt}"], is_persistent=True, timeout=10)
 
 
 @pytest.fixture
 def pool():
-    p = engine.AgentPool()
+    p = AgentPool()
     yield p
     asyncio.run(p.shutdown()) if p.agents else None
 
 
 def test_supports_only_known_protocols(pool, claude_spec, fakebin):
     assert pool.supports(claude_spec)
-    other = engine.AgentSpec("X", [str(write_script(fakebin / "other", "print(1)")), "{prompt}"], is_persistent=True)
+    other = AgentSpec("X", [str(write_script(fakebin / "other", "print(1)")), "{prompt}"], is_persistent=True)
     assert not pool.supports(other)
     claude_spec.is_persistent = False
     assert not pool.supports(claude_spec)

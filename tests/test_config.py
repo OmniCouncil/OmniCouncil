@@ -7,6 +7,7 @@ import pytest
 
 from conftest import config
 
+
 PH = config.PROMPT_PLACEHOLDER
 
 

@@ -14,11 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# —— 被测模块（重构后只需修改这里的导入路径）——
-import config  # noqa: E402
-import engine  # noqa: E402
-import i18n  # noqa: E402
-import storage  # noqa: E402
+from omnicouncil import config, i18n, storage  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

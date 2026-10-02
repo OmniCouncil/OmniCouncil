@@ -134,6 +134,8 @@ async def run_one(row: dict, cfg, do_cowork: bool, sem: asyncio.Semaphore) -> di
             singles[r.name] = extract_choice(r.output, n_opt) if r.ok else None
             rec["systems"][f"single:{r.name}"] = {"choice": singles[r.name], "ok": r.ok, "seconds": round(r.elapsed, 1),
                                                    "calls": 1}
+            if not r.ok:
+                rec["systems"][f"single:{r.name}"]["error"] = r.error_summary[:200]
         rec["systems"]["majority"] = {"choice": majority(list(singles.values())), "ok": True,
                                       "seconds": round(max((r.elapsed for r in o.results), default=0), 1),
                                       "calls": len(o.results)}
@@ -248,6 +250,46 @@ def summarize(path: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _cached_row(question_id: int) -> dict:
+    for f in CACHE.glob("mmlu_pro_*.json"):
+        row = json.loads(f.read_text(encoding="utf-8"))
+        if row["question_id"] == question_id:
+            return row
+    raise KeyError(question_id)
+
+
+async def augment_leader_alone(path: Path, config_path: Optional[str], concurrency: int) -> None:
+    """Add a "<Leader> alone" baseline to an existing results file: the Leader answers each question directly.
+    Separates "the council helps" from "the Leader model is simply strong"."""
+    from omnicouncil.runner import run_agent
+
+    i18n.set_language("en")
+    cfg = load_config(Path(config_path)) if config_path else load_config()
+    leader = cfg.leader
+    key = f"single:{leader.name} (alone)"
+    recs = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    sem = asyncio.Semaphore(concurrency)
+    await POOL.sync([leader])
+
+    async def one(rec: dict) -> None:
+        if key in rec["systems"]:
+            return
+        row = _cached_row(rec["question_id"])
+        async with sem:
+            r = await run_agent(leader, format_question(row))
+        choice = extract_choice(r.output, len(row["options"])) if r.ok else None
+        rec["systems"][key] = {"choice": choice, "ok": r.ok, "seconds": round(r.elapsed, 1), "calls": 1,
+                               "correct": choice == rec["gold"]}
+        print(f"{rec['question_id']} gold={rec['gold']} {leader.name} alone={choice} ({'✓' if choice == rec['gold'] else '✗'})",
+              flush=True)
+
+    try:
+        await asyncio.gather(*(one(r) for r in recs))
+    finally:
+        await POOL.shutdown()
+    path.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--n", type=int, default=20, help="number of questions (default 20)")
@@ -256,8 +298,13 @@ def main() -> None:
     ap.add_argument("--concurrency", type=int, default=2, help="questions in flight at once (default 2)")
     ap.add_argument("--config", help="config.json to use (default: the app's config)")
     ap.add_argument("--summarize", type=Path, help="only summarize an existing results.jsonl")
+    ap.add_argument("--augment", type=Path, help="add a '<Leader> alone' baseline to an existing results.jsonl")
     args = ap.parse_args()
-    path = args.summarize or asyncio.run(run(args))
+    if args.augment:
+        asyncio.run(augment_leader_alone(args.augment, args.config, args.concurrency))
+        path = args.augment
+    else:
+        path = args.summarize or asyncio.run(run(args))
     summary = summarize(path)
     (path.parent / "summary.md").write_text(summary, encoding="utf-8")
     print("\n" + summary)

@@ -1,0 +1,15 @@
+{
+  "dataset": "TIGER-Lab/MMLU-Pro (test)",
+  "n": 20,
+  "seed": 7,
+  "cowork_n": 10,
+  "workers": [
+    "Claude:default",
+    "Gemini:gemini-3.8-flash-medium",
+    "Codex:gpt-5.6-sol"
+  ],
+  "leader": "Claude Opus",
+  "review_on_low_confidence": true,
+  "cowork_rounds": 3,
+  "started": "2026-10-01 22:43"
+}

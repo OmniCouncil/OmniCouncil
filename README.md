@@ -2,6 +2,8 @@
 
 # OmniCouncil
 
+![OmniCouncil Demo](./assets/demo.gif)
+
 **A local-first Mixture-of-Agents desktop app for macOS.**
 Ask Claude, Gemini and Codex at once. They answer or debate, and a Judge model returns one verdict with a consensus score.
 

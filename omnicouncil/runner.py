@@ -51,7 +51,14 @@ class AgyJson(OneShotAdapter):
         if not isinstance(data, dict) or "status" not in data:
             return None
         if data["status"] == "SUCCESS":
-            return True, str(data.get("response") or "").strip()
+            text = str(data.get("response") or "").strip()
+            denied = [a.get("display_name") or a.get("action") for a in data.get("denied_actions") or []
+                      if isinstance(a, dict)]
+            if not text and denied:
+                # agy asked for a permission (e.g. to open a web page) that a non-interactive run can't grant
+                return False, ("agy needed permission for " + ", ".join(denied) + ", which is denied in "
+                               "non-interactive mode, and returned no answer")
+            return True, text
         return False, str(data.get("error") or data.get("response") or data["status"]).strip()
 
 

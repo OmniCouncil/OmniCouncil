@@ -126,10 +126,21 @@ async def _run(argv: list[str], env_unset: tuple[str, ...] = (), timeout: float 
 _RETRY_AT = re.compile(r"try again at\s+(\d{1,2}):(\d{2})\s*([AP]M)?", re.IGNORECASE)
 
 
+_RESETS_IN = re.compile(r"resets? in\s+(?:(\d+)\s*d)?\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?", re.IGNORECASE)
+
+
 def parse_limit_message(text: str, now: Optional[dt.datetime] = None) -> Optional[float]:
-    """从 "...hit your usage limit ... try again at 8:51 PM." 中解析出解除时间（epoch）。"""
-    if "limit" not in text.lower():
+    """解析限额解除时间（epoch）。支持：
+    codex  "...hit your usage limit ... try again at 8:51 PM."
+    agy    "Individual quota reached. ... Resets in 149h25m35s." """
+    low = text.lower()
+    if "limit" not in low and "quota" not in low:
         return None
+    now = now or dt.datetime.now()
+    m = _RESETS_IN.search(text)
+    if m and any(m.groups()):
+        d, h, mi = (int(x) if x else 0 for x in m.groups())
+        return (now + dt.timedelta(days=d, hours=h, minutes=mi)).timestamp()
     m = _RETRY_AT.search(text)
     if not m:
         return None
@@ -138,7 +149,6 @@ def parse_limit_message(text: str, now: Optional[dt.datetime] = None) -> Optiona
         hour += 12
     elif ampm == "AM" and hour == 12:
         hour = 0
-    now = now or dt.datetime.now()
     t = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if t <= now:  # 已过今天这个时间 → 指的是明天
         t += dt.timedelta(days=1)

@@ -151,6 +151,11 @@ DEFAULT_FILE_ACCESS = {
     "codex": {"file_flag": "--image=", "file_arg": "file", "file_tools": "", "file_types": ["image"]},
 }
 FILE_TYPES = ("image", "pdf", "audio", "text")
+
+# 联网搜索：claude 只启用这两个只读联网工具；codex 用 --search；agy 自带搜索、无开关
+WEB_TOOLS = ("WebSearch", "WebFetch")
+WEB_SEARCH_CLIS = ("claude", "codex")
+DEFAULT_WEB_SEARCH = {"claude": True, "codex": True}
 DEFAULT_HOTKEY = "cmd+shift+j"
 
 
@@ -176,6 +181,7 @@ class AgentSpec:
     file_arg: str = "dir"
     file_tools: str = ""
     file_types: list[str] = field(default_factory=list)
+    web_search: bool = False
 
     def can_read(self, kind: str) -> bool:
         return bool(self.file_flag) and kind in self.file_types
@@ -195,11 +201,37 @@ class AgentSpec:
         return {k: v for k, v in os.environ.items() if k not in self.env_unset}
 
     def argv_template(self) -> list[str]:
-        """注入模型参数后的命令模板（仍含 {prompt} 占位符）。
+        """注入模型参数与联网搜索开关后的命令模板（仍含 {prompt} 占位符）。"""
+        return self._with_web_search(self._with_model(list(self.command)))
 
-        模型参数插在 prompt 之前；若 prompt 前面是 -p / --print 这类以 prompt 为值的参数，
+    def _with_web_search(self, cmd: list[str]) -> list[str]:
+        """按 CLI 打开联网搜索（web_search=True）：
+        claude  只启用只读的联网工具并预先批准（非交互模式下无法弹出授权）；不会启用读写文件 / 记忆的工具
+        codex   加 --search（顶层参数，须放在 exec 子命令之前）
+        其他 CLI（如 agy）没有开关，保持原样。"""
+        if not self.web_search or not cmd:
+            return cmd
+        exe = Path(cmd[0]).name
+        if exe == "claude":
+            if "--tools" in cmd and cmd.index("--tools") + 1 < len(cmd):
+                i = cmd.index("--tools")
+                current = [t for t in cmd[i + 1].split(",") if t]
+                cmd[i + 1] = ",".join(dict.fromkeys(current + list(WEB_TOOLS)))
+            else:
+                cmd = [cmd[0], "--tools", ",".join(WEB_TOOLS)] + cmd[1:]
+            if "--allowedTools" not in cmd and "--allowed-tools" not in cmd:
+                cmd = [cmd[0], "--allowedTools", ",".join(WEB_TOOLS)] + cmd[1:]
+        elif exe == "codex" and "--search" not in cmd:
+            cmd = [cmd[0], "--search"] + cmd[1:]
+        return cmd
+
+    @property
+    def supports_web_search(self) -> bool:
+        return bool(self.command) and Path(self.command[0]).name in WEB_SEARCH_CLIS
+
+    def _with_model(self, cmd: list[str]) -> list[str]:
+        """模型参数插在 prompt 之前；若 prompt 前面是 -p / --print 这类以 prompt 为值的参数，
         则插在该参数之前，避免把 prompt 和它的参数拆开。命令里已有同名参数时替换其值而不重复。"""
-        cmd = list(self.command)
         if not (self.selected_model and self.model_flag):
             return cmd
         if self.model_flag in cmd:
@@ -322,11 +354,15 @@ def _parse_agent(raw: object, where: str) -> AgentSpec:
         raise ConfigError(f"{where}.file_flag / file_tools 必须是字符串，file_arg 只能是 dir 或 file")
     if not (isinstance(file_types, list) and all(x in FILE_TYPES for x in file_types)):
         raise ConfigError(f"{where}.file_types 只能包含 {', '.join(FILE_TYPES)}")
+    web_search = raw.get("web_search", False)
+    if not isinstance(web_search, bool):
+        raise ConfigError(f"{where}.web_search 必须是 true 或 false")
     return AgentSpec(name=name, command=command, timeout=float(timeout), env_unset=env_unset,
                      enabled=bool(raw.get("enabled", True)), vendor=vendor, tier=tier,
                      available_models=models, selected_model=selected, model_flag=flag,
                      is_persistent=bool(raw.get("is_persistent", False)), max_turns_per_process=max_turns,
-                     file_flag=file_flag, file_arg=file_arg, file_tools=file_tools, file_types=file_types)
+                     file_flag=file_flag, file_arg=file_arg, file_tools=file_tools, file_types=file_types,
+                     web_search=web_search)
 
 
 def _parse_agent_list(raw: object, where: str) -> list[AgentSpec]:
@@ -345,6 +381,22 @@ def migrate_config(data: dict) -> bool:
     命令里已经写死的模型参数（如 agy 的 "--model gemini-3.8-flash-medium"）会被移出 command，
     成为 selected_model，以后统一由下拉框控制。"""
     changed = False
+    for a in data.get("workers", []) + data.get("leaders", []):
+        cmd = a.get("command") if isinstance(a, dict) else None
+        if isinstance(cmd, list) and cmd and "web_search" not in a:
+            a["web_search"] = DEFAULT_WEB_SEARCH.get(Path(str(cmd[0])).name, False)
+            changed = True
+    # codex Leader 没有指定模型时会用 ~/.codex/config.toml 的默认模型，该默认可能不被 ChatGPT 账户支持；
+    # 沿用 codex Worker 已选定（实际可用）的模型
+    codex_model = next((w.get("selected_model") for w in data.get("workers", []) if isinstance(w, dict)
+                        and isinstance(w.get("command"), list) and w["command"]
+                        and Path(str(w["command"][0])).name == "codex" and w.get("selected_model")), "")
+    for a in data.get("leaders", []):
+        cmd = a.get("command") if isinstance(a, dict) else None
+        if (codex_model and isinstance(cmd, list) and cmd and Path(str(cmd[0])).name == "codex"
+                and not a.get("selected_model") and "-m" not in cmd and "--model" not in cmd):
+            a.update(model_flag="-m", selected_model=codex_model)
+            changed = True
     for a in data.get("leaders", []):
         cmd = a.get("command") if isinstance(a, dict) else None
         if isinstance(cmd, list) and cmd and "file_flag" not in a:
@@ -384,6 +436,19 @@ def migrate_config(data: dict) -> bool:
             w["available_models"] = opts
             changed = True
     return changed
+
+
+def save_agent_field(path: Path, section: str, name: str, key: str, value) -> None:
+    """只回写某个 Agent（workers / leaders 中按名称查找）的一个字段，保留文件中其余内容不变。"""
+    with _write_lock:
+        data = read_raw_config(path)
+        for a in data.get(section, []):
+            if a.get("name") == name:
+                a[key] = value
+                break
+        else:
+            raise ConfigError(f"找不到名为「{name}」的 {section}")
+        write_raw_config(data, path)
 
 
 def save_worker_model(path: Path, worker: str, model: str) -> None:

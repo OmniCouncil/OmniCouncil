@@ -152,6 +152,7 @@ def config(
         table.add_column("状态")
         table.add_column("名称")
         table.add_column("模型")
+        table.add_column("联网")
         table.add_column("命令")
         table.add_column("超时", justify="right")
         table.add_column("已安装")
@@ -162,9 +163,10 @@ def config(
             installed = "[green]✓[/]" if shutil.which(spec.command[0]) else "[bold red]✗ 未找到[/]"
             cmd = shlex.join(spec.argv_template())
             model_txt = (spec.selected_model or "[dim]CLI 默认[/]") if spec.model_flag else "[dim]—[/]"
+            web_txt = ("[green]✓[/]" if spec.web_search else "[dim]关[/]") if spec.supports_web_search else "[dim]自带[/]"
             if spec.env_unset:
                 cmd += f"\n[dim]env_unset: {', '.join(spec.env_unset)}[/]"
-            table.add_row(role, state, spec.name, model_txt, cmd, f"{spec.timeout:.0f}s", installed)
+            table.add_row(role, state, spec.name, model_txt, web_txt, cmd, f"{spec.timeout:.0f}s", installed)
         console.print(table)
         return
 

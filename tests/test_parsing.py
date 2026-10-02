@@ -101,3 +101,45 @@ def test_build_context_prompt_formats_and_limits():
 def test_build_context_prompt_chinese():
     i18n.set_language("zh")
     assert build_context_prompt([("问", "答")], "再问").startswith("此前的对话：\n用户: 问")
+
+
+# —— Markdown sections with sub-headings (regression: Co-work final answer was cut at the first "####") ——
+
+COWORK_VERDICT = """### 共识分析
+一致。
+
+### 共识度：1.0
+### 确信度：中
+
+### 最终定论
+**前提**：没有任何名单能保证赚钱。
+
+#### 五只候选与参考配置
+| 股票 | 占比 |
+|---|---|
+| AMZN | 18% |
+
+#### 执行纪律
+1. 分批建仓。
+
+以上内容不构成投资建议。
+"""
+
+
+def test_final_answer_keeps_sub_sections():
+    fa = parse_judge_output(COWORK_VERDICT)["final_answer"]
+    assert fa.startswith("**前提**") and "| AMZN | 18% |" in fa and "#### 执行纪律" in fa
+    assert fa.endswith("以上内容不构成投资建议。")
+
+
+def test_final_answer_stops_at_same_level_heading():
+    text = COWORK_VERDICT + "\n### 争议指导意见\n- 核实财报日期\n"
+    fa = parse_judge_output(text)["final_answer"]
+    assert "执行纪律" in fa and "核实财报日期" not in fa
+
+
+def test_guidance_keeps_sub_sections_and_stops_at_same_level():
+    text = ("### 最终定论\n暂无\n### 争议指导意见\n#### 数据\n- 核实日期\n#### 方法\n- 统一口径\n"
+            "### 附注\n不属于指导意见")
+    g = extract_guidance(text)
+    assert "核实日期" in g and "统一口径" in g and "不属于指导意见" not in g

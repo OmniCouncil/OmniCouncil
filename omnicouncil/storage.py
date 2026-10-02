@@ -18,6 +18,7 @@ from typing import Optional
 from .agent import AgentResult
 from .config import AgentSpec
 from .orchestrate import RunOutcome
+from .parsing import parse_judge_output
 from .paths import DATA_DIR
 
 DEFAULT_DB_PATH = DATA_DIR / "history.sqlite"
@@ -70,8 +71,13 @@ def result_to_dict(r: Optional[AgentResult]) -> Optional[dict]:
 def result_from_dict(d: Optional[dict]) -> Optional[AgentResult]:
     if d is None:
         return None
-    return AgentResult(name=d["name"], ok=d["ok"], output=d.get("output", ""), error=d.get("error", ""),
-                       elapsed=d.get("elapsed", 0.0), returncode=d.get("returncode"), extra=d.get("extra") or {})
+    r = AgentResult(name=d["name"], ok=d["ok"], output=d.get("output", ""), error=d.get("error", ""),
+                    elapsed=d.get("elapsed", 0.0), returncode=d.get("returncode"), extra=d.get("extra") or {})
+    # Markdown (non-JSON) verdicts are re-parsed from the full output, which is always stored: older versions cut
+    # the final answer at the first sub-heading, and re-parsing repairs history saved by those versions.
+    if r.ok and r.extra.get("structured") is False and r.output:
+        r.extra["final_answer"] = parse_judge_output(r.output)["final_answer"]
+    return r
 
 
 def outcome_to_record(question: str, workers: list[AgentSpec], leader: AgentSpec, outcome: RunOutcome,

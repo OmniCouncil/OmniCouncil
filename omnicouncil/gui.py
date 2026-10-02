@@ -1992,12 +1992,12 @@ class MainWindow(QMainWindow):
             return
         s.loaded = True
         for record in self.store.get_runs(s.db_id):
-            v = record.get("verdict")
-            if v and v.get("ok"):
+            v = record_to_outcome(record).verdict
+            if v is not None and v.ok:
                 q = record["question"] or t("att.only")
                 if record.get("attachments"):
                     q += " [" + ", ".join(Path(a).name for a in record["attachments"]) + "]"
-                s.turns.append((q, (v.get("extra") or {}).get("final_answer") or v.get("output", "")))
+                s.turns.append((q, v.extra.get("final_answer") or v.output))
             s.view.add_user(record["question"], record.get("attachments"))
             card = RunCard(record.get("workers", []), record.get("leader", "Leader"), mode=record.get("mode", "judge"),
                            rounds=len(record.get("rounds", [])) or 3, context_turns=record.get("context_turns", 0),

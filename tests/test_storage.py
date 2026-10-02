@@ -54,3 +54,13 @@ def test_delete_cascades_to_rounds(tmp_path):
     st.add_run(sid, storage.outcome_to_record("q", [spec], spec, make_outcome("cowork"), 1.0))
     st.delete_session(sid)
     assert st._db.execute("SELECT COUNT(*) FROM round_outputs").fetchone()[0] == 0
+
+
+def test_old_truncated_markdown_verdict_is_repaired_on_load():
+    full = "### 确信度：中\n### 最终定论\n前提。\n\n#### 配置\n| A | 1 |\n\n#### 纪律\n分批。"
+    stored = {"name": "Lead", "ok": True, "output": full, "elapsed": 1.0,
+              "extra": {"structured": False, "final_answer": "前提。", "mode": "cowork"}}  # saved by the old parser
+    r = storage.result_from_dict(stored)
+    assert "#### 纪律" in r.extra["final_answer"] and r.extra["final_answer"].endswith("分批。")
+    j = storage.result_from_dict({"name": "J", "ok": True, "output": "{}", "extra": {"structured": True, "final_answer": "keep"}})
+    assert j.extra["final_answer"] == "keep"   # JSON verdicts are left untouched

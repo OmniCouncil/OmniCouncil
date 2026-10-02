@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import shlex
 import shutil
 import time
+from pathlib import Path
 from typing import Optional
 
 from .agent import RUNNING_PROCS, AgentResult
@@ -15,6 +17,46 @@ from .i18n import t
 from .pool import POOL
 
 log = logging.getLogger("omnicouncil.runner")
+
+
+# ---------------------------------------------------------------------------
+# One-shot output adapters: prefer a CLI's structured output over guessing from text
+# ---------------------------------------------------------------------------
+
+
+class OneShotAdapter:
+    """How to run a CLI once and read its answer. The default reads plain stdout."""
+
+    def argv(self, argv: list[str]) -> list[str]:
+        return argv
+
+    def parse(self, stdout: str) -> Optional[tuple[bool, str]]:
+        """Return (ok, text), or None to fall back to plain-text handling."""
+        return None
+
+
+class AgyJson(OneShotAdapter):
+    """agy can exit 0 while printing an error as text; its JSON mode reports an explicit status instead."""
+
+    def argv(self, argv: list[str]) -> list[str]:
+        if "--output-format" in argv or any(a.startswith("--output-format=") for a in argv):
+            return argv
+        return [argv[0], "--output-format", "json", *argv[1:]]
+
+    def parse(self, stdout: str) -> Optional[tuple[bool, str]]:
+        try:
+            data = json.loads(stdout)
+        except ValueError:
+            return None
+        if not isinstance(data, dict) or "status" not in data:
+            return None
+        if data["status"] == "SUCCESS":
+            return True, str(data.get("response") or "").strip()
+        return False, str(data.get("error") or data.get("response") or data["status"]).strip()
+
+
+ADAPTERS: dict[str, OneShotAdapter] = {"agy": AgyJson()}
+_PLAIN = OneShotAdapter()
 
 
 def describe_argv(argv: list[str], prompt: str) -> str:
@@ -53,7 +95,8 @@ async def run_agent(spec: AgentSpec, prompt: str, session: Optional[str] = None)
         log.info("[%s] answered by warm process in %.1fs", spec.name, pooled.elapsed)
         return pooled
 
-    argv = spec.build(prompt)
+    adapter = ADAPTERS.get(Path(exe).name, _PLAIN)
+    argv = adapter.argv(spec.build(prompt))
     log.info("[%s] exec: %s", spec.name, describe_argv(argv, prompt))
     start = time.monotonic()
     try:
@@ -86,12 +129,18 @@ async def run_agent(spec: AgentSpec, prompt: str, session: Optional[str] = None)
     stdout = stdout_b.decode("utf-8", errors="replace").strip()
     stderr = stderr_b.decode("utf-8", errors="replace").strip()
 
-    if proc.returncode != 0:
+    parsed = adapter.parse(stdout)
+    if parsed is not None:  # structured output: trust its status, whatever the exit code
+        ok, text = parsed
+        if not ok:
+            return AgentResult(spec.name, ok=False, error=text or stderr or "error", elapsed=elapsed,
+                               returncode=proc.returncode)
+        stdout = text
+    elif proc.returncode != 0:
         return AgentResult(spec.name, ok=False, output=stdout, error=stderr or "non-zero exit",
                            elapsed=elapsed, returncode=proc.returncode)
-
-    # 部分 CLI（如 agy）出错时仍返回 0，把错误打印成普通输出
-    if stdout.lower().startswith("error:"):
+    elif adapter is not _PLAIN and stdout.lower().startswith("error:"):
+        # structured output unavailable (e.g. an older CLI version): last-resort text check
         return AgentResult(spec.name, ok=False, error=stdout, elapsed=elapsed, returncode=0)
 
     if not stdout:

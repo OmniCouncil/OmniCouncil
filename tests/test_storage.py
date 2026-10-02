@@ -3,7 +3,7 @@
 import json
 import sqlite3
 
-from conftest import storage
+from omnicouncil import storage
 from omnicouncil.agent import AgentResult
 from omnicouncil.config import AgentSpec
 from omnicouncil.orchestrate import RunOutcome

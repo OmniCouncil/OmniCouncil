@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 
 from .i18n import t
 
-_ERROR_LINE = re.compile(r"error|limit|fail|denied|not found|timed? ?out|exception|未找到|超时|失败|无法", re.IGNORECASE)
+_ERROR_LINE = re.compile(r"error|limit|fail|denied|invalid|not found|not recognized|unknown|timed? ?out|exception|"
+                         r"未找到|超时|失败|无法|无效", re.IGNORECASE)
 
 
 @dataclass
@@ -36,7 +37,7 @@ class AgentResult:
         for ln in reversed(lines):
             if _ERROR_LINE.search(ln):
                 return ln
-        return lines[-1]
+        return lines[0]  # 没有明显的错误行时取第一行：报错通常在前，后面多是列表或堆栈
 
 
 # Every CLI subprocess that is currently running (one-shot or pooled), so the app can kill them on exit.

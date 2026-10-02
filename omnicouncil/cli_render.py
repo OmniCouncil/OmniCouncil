@@ -56,7 +56,9 @@ def render_verdict(verdict: AgentResult) -> None:
     if verdict.extra.get("mode") == "cowork":
         title = f"⚖  最终裁决（Co-work · {verdict.extra.get('round')} 轮讨论）"
     subtitle = f"确信度：{conf or '未知'}"
-    if score is not None:
+    if verdict.extra.get("quorum") is False:
+        subtitle = "[dim]共识度：样本不足（未经交叉验证）[/]  ·  " + subtitle
+    elif score is not None:
         style, dot = SCORE_STYLES[score]
         subtitle = f"[{style}]共识度：{ {1.0: '1.0', 0.5: '0.5', 0.0: '0'}[score]} {dot}[/]  ·  " + subtitle
     console.print()

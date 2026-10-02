@@ -735,18 +735,24 @@ class RunCard(QFrame):
     def _verdict_status(self, r: AgentResult) -> str:
         text = t("card.done_conf", conf=self._conf_text(r))
         score = r.extra.get("consensus_score")
-        if score is not None:
+        if r.extra.get("quorum") is False:
+            text += " · " + t("card.no_quorum")
+        elif score is not None:
             text += " · " + t("card.consensus", score=SCORE_TEXT[score], dot=SCORE_DOTS[score])
         return text
 
     @staticmethod
     def _verdict_detail(r: AgentResult) -> str:
-        """Leader / 复审行的详情：结构化输出时显示评审分析，否则显示原始输出。"""
+        """Leader / 复审行的详情：匿名标签对照 + 评审分析（结构化输出时）或原始输出。"""
+        legend = ""
+        if r.extra.get("labels"):
+            pairs = " · ".join(f"**{k}** = {v}" for k, v in sorted(r.extra["labels"].items()))
+            legend = f"*{t('card.labels', pairs=pairs)}*\n\n"
         if r.extra.get("analysis"):
-            return f"#### {t('card.analysis')}\n\n{r.extra['analysis']}"
+            return f"{legend}#### {t('card.analysis')}\n\n{r.extra['analysis']}"
         if r.extra.get("structured") is False and r.extra.get("mode") != "cowork":
-            return f"#### {t('card.raw_output')}\n\n{r.output}"
-        return r.output
+            return f"{legend}#### {t('card.raw_output')}\n\n{r.output}"
+        return legend + r.output
 
     def _show_verdict(self, verdict: AgentResult) -> None:
         """渲染（或替换）回答主体：评分徽章 + 最终答案。"""
@@ -769,7 +775,13 @@ class RunCard(QFrame):
         else:
             who = t("card.judge_by", name=verdict.name)
         head.addWidget(shrinkable(label(who, "Faint")), 1)
-        if score is not None:
+        if verdict.extra.get("quorum") is False:
+            qb = label(t("card.no_quorum"))
+            qb.setStyleSheet(f"color: {C['muted']}; border: 1px solid {C['muted']}; border-radius: 9px;"
+                             f" padding: 2px 9px; font-size: 12px; font-weight: 600;")
+            qb.setToolTip(t("card.no_quorum_tip"))
+            head.addWidget(qb)
+        elif score is not None:
             color = SCORE_COLORS[score]
             sb = label(t("card.consensus", score=SCORE_TEXT[score], dot=SCORE_DOTS[score]))
             sb.setStyleSheet(f"color: {color}; border: 1px solid {color}; border-radius: 9px;"

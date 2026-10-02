@@ -22,6 +22,7 @@ Co-work 模式：多轮圆桌讨论 + Leader 总结（确信度低时延长讨�
 from __future__ import annotations
 
 import asyncio
+import random
 import uuid
 from typing import Optional
 
@@ -29,8 +30,19 @@ from . import i18n, prompts
 from .agent import AgentResult
 from .config import AgentSpec
 from .i18n import t
-from .orchestrate import EXIT_LEADER_FAILED, EXIT_NO_WORKERS, EXIT_OK, EventHandler, RunOutcome, format_answers
-from .parsing import apply_judge_parse, extract_guidance
+from .orchestrate import (
+    EXIT_LEADER_FAILED,
+    EXIT_NO_WORKERS,
+    EXIT_OK,
+    EventHandler,
+    RunOutcome,
+    answer_block,
+    answer_letter,
+    apply_verdict_meta,
+    format_answers_blind,
+    needs_second_opinion,
+)
+from .parsing import extract_guidance
 from .pool import POOL
 from .runner import run_agent
 
@@ -40,11 +52,12 @@ def _clip(text: str, limit: int = PEER_ANSWER_LIMIT) -> str:
     return text if len(text) <= limit else text[:limit] + "\n…(truncated)"
 
 
-def build_peer_prompt(question: str, own: AgentResult, peers: list[AgentResult], round_: int, total: int,
+def build_peer_prompt(question: str, own: AgentResult, peers: list[tuple[str, AgentResult]], round_: int, total: int,
                       phase: str, guidance: Optional[str]) -> str:
+    """peers: [(anonymous letter, answer)]. Peers are never named — naming them encourages deferring to a brand
+    or to whoever sounds most confident instead of to the best argument."""
     en = i18n.current() == "en"
-    peer_fmt = "### {name}'s view\n{out}" if en else "### {name} 的看法\n{out}"
-    peers_text = "\n\n".join(peer_fmt.format(name=p.name, out=_clip(p.output)) for p in peers) or "—"
+    peers_text = "\n\n".join(answer_block(letter, _clip(p.output)) for letter, p in peers) or "—"
     guidance_text = ""
     if guidance:
         guidance_text = (f"\n## The Leader's dispute guidance\n{guidance}\n" if en
@@ -71,6 +84,11 @@ async def _cowork_loop(question: str, workers: list[AgentSpec], leader: AgentSpe
     rounds = max(1, rounds)
     max_rounds = max(rounds, max_rounds)
     en = i18n.current() == "en"
+
+    # 本次运行内固定的匿名字母（随机分配）：同一个 Worker 在各轮中保持同一字母，但不暴露模型名
+    shuffled = list(range(len(workers)))
+    random.shuffle(shuffled)
+    letter_of = {w: answer_letter(k) for k, w in enumerate(shuffled)}
 
     history: list[dict[int, AgentResult]] = []   # 每一轮：worker 下标 → 结果
     latest: dict[int, AgentResult] = {}         # 每个 worker 最后一次参与的结果
@@ -102,7 +120,7 @@ async def _cowork_loop(question: str, workers: list[AgentSpec], leader: AgentSpe
             if round_ == 1:
                 prompt = question
             else:
-                peers = [prev[j] for j in sorted(prev) if j != i and prev[j].ok]
+                peers = sorted(((letter_of[j], prev[j]) for j in prev if j != i and prev[j].ok), key=lambda x: x[0])
                 prompt = build_peer_prompt(question, prev[i], peers, round_, planned, phase, guidance)
             try:
                 r = await run_agent(spec, prompt, session)
@@ -135,14 +153,15 @@ async def _cowork_loop(question: str, workers: list[AgentSpec], leader: AgentSpe
             guidance_note = (f"\nIn the previous summary you issued this dispute guidance, which the assistants have since discussed:\n{guidance}\n"
                              if en else f"\n你在上一次总结中下发过以下争议指导意见，各助手已据此进行了讨论：\n{guidance}\n")
         template = prompts.get("cowork_leader")
+        answers, labels = format_answers_blind(final_answers)
         emit("leader_start", {"spec": leader, "n_answers": len(final_answers), "round": round_})
         v = await run_agent(leader, template.format(n=len(final_answers), rounds=round_, guidance=guidance_note,
-                                                    question=question, answers=format_answers(final_answers)), session)
+                                                    question=question, answers=answers), session)
         will_extend = False
         v.extra.update(round=round_, mode="cowork")
         if v.ok:
-            apply_judge_parse(v)  # Co-work 总结是 Markdown 格式：回退解析取「最终定论」一节作为正文
-            will_extend = (extend_on_low and v.extra["confidence"] == "低" and round_ < max_rounds
+            apply_verdict_meta(v, len(final_answers), labels)  # Markdown 输出：回退解析取「最终定论」一节作为正文
+            will_extend = (extend_on_low and needs_second_opinion(v) and round_ < max_rounds
                            and len(active) >= 2)
         emit("leader_done", {"spec": leader, "result": v, "round": round_, "will_extend": will_extend})
         leader_verdicts.append(v)

@@ -6,6 +6,7 @@ Shared by the terminal front end (cli_render.py) and the desktop app (gui.py).
 from __future__ import annotations
 
 import asyncio
+import random
 import uuid
 from dataclasses import dataclass, field
 from typing import Callable, Optional
@@ -43,9 +44,66 @@ def build_context_prompt(history: list[tuple[str, str]], question: str, max_turn
     return f"{head}\n" + "\n\n".join(turns) + f"\n\n{tail} {question}"
 
 
-def format_answers(results: list[AgentResult]) -> str:
-    fmt = "### Assistant {i} ({name})\n{out}" if i18n.current() == "en" else "### 助手 {i}（{name}）\n{out}"
-    return "\n\n".join(fmt.format(i=i, name=r.name, out=r.output) for i, r in enumerate(results, 1))
+# ---------------------------------------------------------------------------
+# Blind, bounded answer formatting for the Judge
+# ---------------------------------------------------------------------------
+# Model names are never shown to the Judge (self-preference / brand bias), the order is shuffled
+# (position bias), every answer is wrapped in <answer> tags and treated as untrusted data by the prompt
+# (prompt injection), and each answer is length-capped.
+
+ANSWER_LIMIT = 8000  # max characters of one answer passed to a Judge / reviewer
+
+
+def answer_letter(i: int) -> str:
+    """0 → A, 1 → B, … 25 → Z, 26 → AA."""
+    s = ""
+    i += 1
+    while i:
+        i, r = divmod(i - 1, 26)
+        s = chr(65 + r) + s
+    return s
+
+
+def sanitize_untrusted(text: str, limit: int = ANSWER_LIMIT) -> str:
+    """Clip, and defuse anything that looks like our own data-boundary tags."""
+    if len(text) > limit:
+        text = text[:limit] + "\n…(truncated)"
+    for tag in ("answer", "first_review"):
+        text = text.replace(f"</{tag}>", f"</{tag}_>").replace(f"<{tag}", f"<{tag}_")
+    return text
+
+
+def answer_block(label: str, text: str) -> str:
+    return f'<answer id="{label}">\n{sanitize_untrusted(text)}\n</answer>'
+
+
+def format_answers_blind(results: list[AgentResult], rng: Optional[random.Random] = None) -> tuple[str, dict[str, str]]:
+    """Anonymize and shuffle answers. Returns (prompt text, {letter: agent name}) — the mapping stays local."""
+    order = list(results)
+    (rng or random).shuffle(order)
+    labels, parts = {}, []
+    for i, r in enumerate(order):
+        letter = answer_letter(i)
+        labels[letter] = r.name
+        parts.append(answer_block(letter, r.output))
+    return "\n\n".join(parts), labels
+
+
+def apply_verdict_meta(result: AgentResult, n_answers: int, labels: dict[str, str]) -> None:
+    """Parse the verdict, then enforce quorum: with fewer than two answers there is nothing to agree on."""
+    apply_judge_parse(result)
+    quorum = n_answers >= 2
+    result.extra["quorum"] = quorum
+    result.extra["labels"] = labels
+    if not quorum:
+        result.extra["consensus_score"] = None
+
+
+def needs_second_opinion(result: AgentResult) -> bool:
+    """Low self-reported confidence, or measured disagreement (score 0) — self-reported confidence is poorly
+    calibrated, so a total lack of consensus triggers a second opinion even when the Judge sounds sure."""
+    return result.extra.get("confidence") == "低" or (
+        result.extra.get("quorum") and result.extra.get("consensus_score") == 0.0)
 
 
 def select_reviewer(pool: list[AgentSpec], leader: AgentSpec) -> Optional[AgentSpec]:
@@ -69,7 +127,8 @@ def select_reviewer(pool: list[AgentSpec], leader: AgentSpec) -> Optional[AgentS
 #   workers_finished  {results, ok}
 #   leader_start      {spec, n_answers}
 #   leader_done       {spec, result}               result.extra["confidence"] 为 高/中/低/None
-#   review_start      {spec, leader, fallback}     首轮确信度低 → 异构模型复审；fallback=True 表示池中无其他可用模型，只能由原 Leader 复审
+#   review_start      {spec, leader, fallback}     首轮确信度低或共识度为 0 → 异构模型复审；fallback=True 表示池中无其他可用模型
+#   leader_done / review_done 的 result.extra 还包含：consensus_score（不足两个回答时为 None）、quorum、labels（字母 → 模型名）
 #   review_done       {spec, result}
 
 EventHandler = Callable[[str, dict], None]
@@ -127,17 +186,17 @@ async def _orchestrate(question: str, workers: list[AgentSpec], leader: AgentSpe
     if not ok:
         return RunOutcome(results, None, EXIT_NO_WORKERS)
 
-    answers = format_answers(ok)
+    answers, labels = format_answers_blind(ok)
     judge_template, review_template = prompts.get("judge"), prompts.get("review")
     emit("leader_start", {"spec": leader, "n_answers": len(ok)})
     first = await run_agent(leader, judge_template.format(n=len(ok), question=question, answers=answers), session)
     if first.ok:
-        apply_judge_parse(first)
+        apply_verdict_meta(first, len(ok), labels)
     emit("leader_done", {"spec": leader, "result": first})
     if not first.ok:
         return RunOutcome(results, first, EXIT_LEADER_FAILED, first_verdict=first)
 
-    if not (review_on_low and first.extra["confidence"] == "低"):
+    if not (review_on_low and needs_second_opinion(first)):
         return RunOutcome(results, first, EXIT_OK, first_verdict=first)
 
     # —— 动态复审：换一个异构模型 ——
@@ -146,9 +205,9 @@ async def _orchestrate(question: str, workers: list[AgentSpec], leader: AgentSpe
     reviewer = reviewer or leader
     emit("review_start", {"spec": reviewer, "leader": leader, "fallback": fallback})
     review = await run_agent(reviewer, review_template.format(
-        question=question, answers=answers, first_leader=leader.name, first_verdict=first.output), session)
+        question=question, answers=answers, first_verdict=sanitize_untrusted(first.output)), session)
     if review.ok:
-        apply_judge_parse(review)
+        apply_verdict_meta(review, len(ok), labels)
         review.extra.update(reviewed=True, first_confidence=first.extra["confidence"], first_leader=leader.name)
     emit("review_done", {"spec": reviewer, "result": review})
     # 复审失败时保留首轮裁决

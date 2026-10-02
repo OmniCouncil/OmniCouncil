@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import stat
 import sys
 import textwrap
@@ -14,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from omnicouncil import config, i18n, storage  # noqa: E402
+from omnicouncil import config, i18n  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
